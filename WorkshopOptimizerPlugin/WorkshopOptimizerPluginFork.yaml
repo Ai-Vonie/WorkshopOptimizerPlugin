@@ -1,4 +1,4 @@
-name: Workshop Optimizer Plugin
+name: Workshop Optimizer Plugin Fork
 author: HappySprite
 description: Use /wso after you visited your island.
 punchline: Optimize Island Sanctuary Workshop orders.
@@ -13,3 +13,4 @@ tags:
    - island
    - workshop
    - optimizer
+   - fork
