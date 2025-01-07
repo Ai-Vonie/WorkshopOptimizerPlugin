@@ -21,13 +21,15 @@ public class MainWindow : Window, IDisposable
     private readonly List<Tuple<string, ITab>> tabs;
 
     public MainWindow(Plugin plugin) : base(
-        "Workshop Optimizer", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
+        "Workshop Optimizer", ImGuiWindowFlags.None)
     {
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(375, 600),
+            MinimumSize = new Vector2(375, 300),
             MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
         };
+
+        Flags = ImGuiWindowFlags.None;
 
         this.plugin = plugin;
 

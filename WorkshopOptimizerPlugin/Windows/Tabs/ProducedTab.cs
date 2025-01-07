@@ -4,6 +4,7 @@ using System.Linq;
 using WorkshopOptimizerPlugin.Data;
 using WorkshopOptimizerPlugin.Optimizer;
 using WorkshopOptimizerPlugin.Windows.Utils;
+using WorkshopOptimizerPlugin.Persistence;
 
 namespace WorkshopOptimizerPlugin.Windows.Tabs;
 
@@ -11,6 +12,89 @@ internal class ProducedTab : ITab
 {
     private readonly UIDataSource uiDataSource;
     private readonly CommonInterfaceElements ifData;
+    private readonly Dictionary<int, System.Numerics.Vector4> workshopColors = new();
+    private int colorIndex = 0;
+
+    private System.Numerics.Vector4 GetNextColor()
+    {
+        var colors = new System.Numerics.Vector4[]
+        {
+            new(0.9f, 0.7f, 0.7f, 0.3f),
+            new(0.7f, 0.9f, 0.7f, 0.3f),
+            new(0.7f, 0.7f, 0.9f, 0.3f),
+            new(0.9f, 0.9f, 0.7f, 0.3f),
+            new(0.9f, 0.7f, 0.9f, 0.3f),
+            new(0.7f, 0.9f, 0.9f, 0.3f)
+        };
+        
+        return colors[colorIndex++ % colors.Length];
+    }
+
+    private bool IsWorkshopEmpty(int[] workshop)
+    {
+        return workshop.All(step => step == -1);
+    }
+
+    private bool AreWorkshopsIdentical(int[] workshop1, int[] workshop2, int cycle)
+    {
+        if (IsWorkshopEmpty(workshop1) && IsWorkshopEmpty(workshop2))
+        {
+            return false;
+        }
+        
+        for (int step = 0; step < Constants.MaxSteps; step++)
+        {
+            if (workshop1[step] == -1 && workshop2[step] == -1) continue;
+            if (workshop1[step] != workshop2[step]) return false;
+        }
+        return true;
+    }
+
+    private void UpdateWorkshopColors(ProducedItemsAdaptor producedItems, int cycle)
+    {
+        workshopColors.Clear();
+        colorIndex = 0;
+
+        for (int w1 = 0; w1 < Constants.MaxWorkshops; w1++)
+        {
+            if (workshopColors.ContainsKey(w1)) continue;
+
+            var workshop1 = new int[Constants.MaxSteps];
+            for (int step = 0; step < Constants.MaxSteps; step++)
+            {
+                workshop1[step] = producedItems[cycle, w1, step];
+            }
+
+            if (IsWorkshopEmpty(workshop1)) continue;
+
+            for (int w2 = w1 + 1; w2 < Constants.MaxWorkshops; w2++)
+            {
+                if (workshopColors.ContainsKey(w2)) continue;
+
+                var workshop2 = new int[Constants.MaxSteps];
+                for (int step = 0; step < Constants.MaxSteps; step++)
+                {
+                    workshop2[step] = producedItems[cycle, w2, step];
+                }
+
+                if (IsWorkshopEmpty(workshop2)) continue;
+
+                if (AreWorkshopsIdentical(workshop1, workshop2, cycle))
+                {
+                    if (!workshopColors.ContainsKey(w1))
+                    {
+                        var color = GetNextColor();
+                        workshopColors[w1] = color;
+                        workshopColors[w2] = color;
+                    }
+                    else
+                    {
+                        workshopColors[w2] = workshopColors[w1];
+                    }
+                }
+            }
+        }
+    }
 
     public ProducedTab(UIDataSource uiDataSource, CommonInterfaceElements ifData)
     {
@@ -33,26 +117,87 @@ internal class ProducedTab : ITab
         DrawMaterialsTable(cycle);
     }
 
+    private string GetWorkshopStepByStepText(List<Item> items)
+    {
+        if (items.Count == 0) return string.Empty;
+        return string.Join(",", items.Select(item => ItemStaticData.Get(item.Id).Name));
+    }
+
     private void DrawProducedTable(int cycle, Groove startGroove)
     {
-        if (!ImGui.BeginTable("Produced", 1 + Constants.MaxWorkshops)) { return; }
+        var tableFlags = ImGuiTableFlags.BordersV | 
+                        ImGuiTableFlags.BordersOuterH | 
+                        ImGuiTableFlags.RowBg | 
+                        ImGuiTableFlags.Resizable |
+                        ImGuiTableFlags.ScrollY |
+                        ImGuiTableFlags.SizingFixedFit;
 
-        ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 200);
-        for (var i = 0; i < Constants.MaxWorkshops; i++)
-        {
-            ImGui.TableSetupColumn($"Workshop {i+1}", ImGuiTableColumnFlags.WidthFixed, 280);
-        }
-        ImGui.TableHeadersRow();
+        if (!ImGui.BeginTable("Produced", 1 + Constants.MaxWorkshops, tableFlags)) { return; }
 
+        var availableHeight = ImGui.GetContentRegionAvail().Y;
+        ImGui.TableSetupScrollFreeze(0, 1);
+        
+        ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoResize, 70);
+        
+        float availableWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - 60;
+        float workshopWidth = availableWidth / Constants.MaxWorkshops;
+        
         var itemCache = ifData.IsCurrentSeason() ? uiDataSource.CurrentItemCache : uiDataSource.PreviousItemCache;
         var producedItems = ifData.IsCurrentSeason() ? uiDataSource.DataSource.CurrentProducedItems : uiDataSource.DataSource.PreviousProducedItems;
-        var disabled = ifData.IsPreviousSeason() || ifData.RestCycles[cycle];
-        var hours = new int[Constants.MaxWorkshops];
         var items = new List<Item>[Constants.MaxWorkshops];
+        
         for (var w = 0; w < Constants.MaxWorkshops; w++)
         {
             items[w] = new List<Item>();
+            for (var step = 0; step < Constants.MaxSteps; step++)
+            {
+                var id = producedItems[cycle, w, step];
+                if (id >= 0)
+                {
+                    var item = itemCache[ItemStaticData.Get(id)];
+                    items[w].Add(item);
+                }
+            }
         }
+
+        for (var i = 0; i < Constants.MaxWorkshops; i++)
+        {
+            ImGui.TableSetupColumn($"Workshop {i+1}", 
+                ImGuiTableColumnFlags.WidthFixed, 
+                workshopWidth);
+        }
+
+        ImGui.TableHeadersRow();
+        for (var i = 0; i < Constants.MaxWorkshops; i++)
+        {
+            if (items[i].Count > 0)
+            {
+                ImGui.TableSetColumnIndex(i + 1);
+                var headerPos = ImGui.GetCursorScreenPos();
+                var headerWidth = ImGui.GetColumnWidth();
+                
+                ImGui.SetCursorScreenPos(headerPos);
+                ImGui.Text($"Workshop {i+1}");
+                
+                ImGui.SameLine();
+                ImGui.SetCursorScreenPos(new System.Numerics.Vector2(headerPos.X + headerWidth - 50, headerPos.Y - 3));
+                if (ImGui.SmallButton($"Copy###{i}"))
+                {
+                    var stepByStepText = GetWorkshopStepByStepText(items[i]);
+                    ImGui.SetClipboardText(stepByStepText);
+                }
+                if (ImGui.IsItemHovered())
+                {
+                    ImGui.SetTooltip("Install and enable IslandWorkshopSearch plugin to use step-by-step search");
+                }
+            }
+        }
+
+        UpdateWorkshopColors(producedItems, cycle);
+
+        var disabled = ifData.IsPreviousSeason() || ifData.RestCycles[cycle];
+        var hours = new int[Constants.MaxWorkshops];
+
         for (var step = 0; step < Constants.MaxSteps; step++)
         {
             ImGui.TableNextRow(ImGuiTableRowFlags.None, 27);
@@ -64,11 +209,17 @@ internal class ProducedTab : ITab
 
                 if (hours[w] >= Constants.MaxHours) { continue; }
 
+                ImGui.TableSetColumnIndex(w + 1);
+
+                if (workshopColors.TryGetValue(w, out var color))
+                {
+                    ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.ColorConvertFloat4ToU32(color));
+                }
+
                 var thisId = producedItems[cycle, w, step];
                 var thisItem = (thisId >= 0) ? itemCache[ItemStaticData.Get(thisId)] : null;
 
-                ImGui.TableSetColumnIndex(w + 1);
-                ImGui.SetNextItemWidth(200);
+                ImGui.SetNextItemWidth(ImGui.GetColumnWidth() * 0.6f);
 
                 if (disabled) { ImGui.BeginDisabled(); }
                 if (ImGui.BeginCombo($"###{w} {step}", thisItem?.Name ?? ""))
@@ -123,15 +274,26 @@ internal class ProducedTab : ITab
 
                 if (thisItem != null)
                 {
-                    items[w].Add(thisItem);
                     hours[w] += thisItem.Hours;
 
                     ImGui.SameLine();
                     ImGui.Text($"{thisItem.Hours}hs ");
-
+                    
                     var (pattern, some) = thisItem.FindPattern(cycle);
                     ImGui.SameLine();
                     ImGui.Text(some ? pattern?.Name ?? " * " : " ? ");
+
+                    var buttonWidth = 40;
+                    ImGui.SameLine(ImGui.GetColumnWidth() - buttonWidth - 5);
+                    if (ImGui.SmallButton($"Copy###{w}{step}"))
+                    {
+                        var fullName = ItemStaticData.Get(thisItem.Id).Name;
+                        ImGui.SetClipboardText(fullName);
+                    }
+                    if (ImGui.IsItemHovered())
+                    {
+                        ImGui.SetTooltip("Install and enable IslandWorkshopSearch plugin to use quick search");
+                    }
                 }
             }
         }
