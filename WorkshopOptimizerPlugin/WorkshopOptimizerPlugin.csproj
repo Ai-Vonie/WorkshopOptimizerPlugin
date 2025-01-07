@@ -1,11 +1,12 @@
 <Project Sdk="Dalamud.NET.Sdk/11.0.0">
     <PropertyGroup>
         <Authors>HappySprite</Authors>
-        <Version>0.3.0.0</Version>
-        <Description>FFXIV Island Sanctuary Workshop Optimizer Plugin.</Description>
+        <Version>1.0.0.0</Version>
+        <Description>FFXIV Island Sanctuary Workshop Optimizer Plugin Fork.</Description>
         <Copyright>Copyright © HappySprite 2022-2023</Copyright>
-        <PackageProjectUrl>https://github.com/belzaru17/WorkshopOptimizerPlugin</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/belzaru17/WorkshopOptimizerPlugin</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/Ai-Vonie/WorkshopOptimizerPlugin</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/Ai-Vonie/WorkshopOptimizerPlugin</RepositoryUrl>
+        <AssemblyName>WorkshopOptimizerPluginFork</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
