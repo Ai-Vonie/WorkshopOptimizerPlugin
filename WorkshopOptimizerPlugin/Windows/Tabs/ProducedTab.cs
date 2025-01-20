@@ -111,6 +111,66 @@ internal class ProducedTab : ITab
         var startGroove = ifData.GetStartGroove();
         ImGui.SameLine();
         ifData.DrawRestCycleCheckbox(cycle);
+        
+        var producedItems = ifData.IsCurrentSeason() ? uiDataSource.DataSource.CurrentProducedItems : uiDataSource.DataSource.PreviousProducedItems;
+        bool hasAnyItems = false;
+        for (var w = 0; w < Constants.MaxWorkshops; w++)
+        {
+            for (var s = 0; s < Constants.MaxSteps; s++)
+            {
+                if (producedItems[cycle, w, s] >= 0)
+                {
+                    hasAnyItems = true;
+                    break;
+                }
+            }
+            if (hasAnyItems) break;
+        }
+
+        if (hasAnyItems)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button($"Copy Cycle {cycle + 1} for Visland Import"))
+            {
+                var text = $"Cycle {cycle + 1}\n{GetAllWorkshopsVislandText(cycle)}";
+                if (!string.IsNullOrEmpty(text))
+                {
+                    ImGui.SetClipboardText(text);
+                }
+            }
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip($"Copies the schedule of all workshops for Cycle {cycle + 1} into the 'V(ery) Islands' plugin.\n" +
+                               "1. Install the 'V(ery) Islands' plugin (Github: ffxiv_visland)\n" +
+                               "2. With the Isleworks Agenda window open, a plugin window\n" +
+                               "   named 'Workshop Optimizer' should appear\n" +
+                               "3. Click the 'Import Recommendations From Clipboard' button\n" +
+                               "4. Click 'Set Schedule: This Week' for the current week\n" +
+                               "   or 'Set Schedule: Next Week' for the next week\n");
+            }
+
+            ImGui.SameLine();
+            if (ImGui.Button("Copy All Cycles for Visland Import"))
+            {
+                var text = GetAllCyclesVislandText();
+                if (!string.IsNullOrEmpty(text))
+                {
+                    ImGui.SetClipboardText(text);
+                }
+            }
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Copies the schedule of all workshops for all cycles that have items into the 'V(ery) Islands' plugin.\n" +
+                               "1. Install the 'V(ery) Islands' plugin (Github: ffxiv_visland)\n" +
+                               "2. With the Isleworks Agenda window open, a plugin window\n" +
+                               "   named 'Workshop Optimizer' should appear\n" +
+                               "3. Click the 'Import Recommendations From Clipboard' button\n" +
+                               "4. Click 'Set Schedule: This Week' for the current week\n" +
+                               "   or 'Set Schedule: Next Week' for the next week\n" +
+                               "Note: You can import up to 5 cycles at once");
+            }
+        }
+
         ImGui.Spacing();
         DrawProducedTable(cycle, startGroove);
         ImGui.Spacing();
@@ -123,6 +183,96 @@ internal class ProducedTab : ITab
         return string.Join(",", items.Select(item => ItemStaticData.Get(item.Id).Name));
     }
 
+    private string GetWorkshopVislandText(List<Item> items)
+    {
+        if (items.Count == 0) return string.Empty;
+
+        var sb = new System.Text.StringBuilder();
+        int currentHour = 0;
+
+        foreach (var item in items)
+        {
+            if (sb.Length > 0) 
+            {
+                sb.AppendLine();
+            }
+            
+            var name = ItemStaticData.Get(item.Id).Name;
+            if (name.StartsWith("Isleworks "))
+                name = name.Substring(10);
+            sb.Append($"[{currentHour}] {name}");
+
+            currentHour += item.Hours;
+        }
+        return sb.ToString();
+    }
+
+    private string GetAllWorkshopsVislandText(int cycle)
+    {
+        var producedItems = ifData.IsCurrentSeason() ? uiDataSource.DataSource.CurrentProducedItems : uiDataSource.DataSource.PreviousProducedItems;
+        var itemCache = ifData.IsCurrentSeason() ? uiDataSource.CurrentItemCache : uiDataSource.PreviousItemCache;
+        var sb = new System.Text.StringBuilder();
+
+        for (var w = 0; w < Constants.MaxWorkshops; w++)
+        {
+            var items = new List<Item>();
+            for (var s = 0; s < Constants.MaxSteps; s++)
+            {
+                var id = producedItems[cycle, w, s];
+                if (id >= 0)
+                {
+                    items.Add(itemCache[ItemStaticData.Get(id)]);
+                }
+            }
+            if (items.Count > 0)
+            {
+                if (sb.Length > 0) 
+                {
+                    sb.AppendLine();
+                    sb.AppendLine($"Workshop {w + 1}:");
+                }
+                else
+                {
+                    sb.AppendLine($"Workshop {w + 1}:");
+                }
+                sb.Append(GetWorkshopVislandText(items));
+            }
+        }
+        return sb.ToString();
+    }
+
+    private string GetAllCyclesVislandText()
+    {
+        var producedItems = ifData.IsCurrentSeason() ? uiDataSource.DataSource.CurrentProducedItems : uiDataSource.DataSource.PreviousProducedItems;
+        var sb = new System.Text.StringBuilder();
+
+        for (var cycle = 0; cycle < Constants.MaxCycles; cycle++)
+        {
+            bool hasItems = false;
+            for (var w = 0; w < Constants.MaxWorkshops && !hasItems; w++)
+            {
+                for (var s = 0; s < Constants.MaxSteps && !hasItems; s++)
+                {
+                    if (producedItems[cycle, w, s] >= 0)
+                    {
+                        hasItems = true;
+                    }
+                }
+            }
+
+            if (hasItems)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.AppendLine();
+                }
+                sb.AppendLine($"Cycle {cycle + 1}");
+                sb.Append(GetAllWorkshopsVislandText(cycle));
+            }
+        }
+        return sb.ToString();
+    }
+
     private void DrawProducedTable(int cycle, Groove startGroove)
     {
         var tableFlags = ImGuiTableFlags.BordersV | 
@@ -131,6 +281,26 @@ internal class ProducedTab : ITab
                         ImGuiTableFlags.Resizable |
                         ImGuiTableFlags.ScrollY |
                         ImGuiTableFlags.SizingFixedFit;
+
+        var producedItems = ifData.IsCurrentSeason() ? uiDataSource.DataSource.CurrentProducedItems : uiDataSource.DataSource.PreviousProducedItems;
+        bool hasAnyItems = false;
+        for (var w = 0; w < Constants.MaxWorkshops; w++)
+        {
+            for (var s = 0; s < Constants.MaxSteps; s++)
+            {
+                if (producedItems[cycle, w, s] >= 0)
+                {
+                    hasAnyItems = true;
+                    break;
+                }
+            }
+            if (hasAnyItems) break;
+        }
+
+        if (hasAnyItems)
+        {
+            ImGui.Spacing();
+        }
 
         if (!ImGui.BeginTable("Produced", 1 + Constants.MaxWorkshops, tableFlags)) { return; }
 
@@ -143,7 +313,6 @@ internal class ProducedTab : ITab
         float workshopWidth = availableWidth / Constants.MaxWorkshops;
         
         var itemCache = ifData.IsCurrentSeason() ? uiDataSource.CurrentItemCache : uiDataSource.PreviousItemCache;
-        var producedItems = ifData.IsCurrentSeason() ? uiDataSource.DataSource.CurrentProducedItems : uiDataSource.DataSource.PreviousProducedItems;
         var items = new List<Item>[Constants.MaxWorkshops];
         
         for (var w = 0; w < Constants.MaxWorkshops; w++)
@@ -188,7 +357,7 @@ internal class ProducedTab : ITab
                 }
                 if (ImGui.IsItemHovered())
                 {
-                    ImGui.SetTooltip("Install and enable IslandWorkshopSearch plugin to use step-by-step search");
+                    ImGui.SetTooltip("Install and enable IslandWorkshopSearch (or my fork) plugin to use step-by-step search");
                 }
             }
         }
@@ -292,7 +461,7 @@ internal class ProducedTab : ITab
                     }
                     if (ImGui.IsItemHovered())
                     {
-                        ImGui.SetTooltip("Install and enable IslandWorkshopSearch plugin to use quick search");
+                        ImGui.SetTooltip("Install and enable IslandWorkshopSearch (or my fork) plugin to use quick search");
                     }
                 }
             }
@@ -412,3 +581,4 @@ internal class ProducedTab : ITab
         ImGui.EndTable();
     }
 }
+
