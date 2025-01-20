@@ -1,4 +1,4 @@
-# WorkshopOptimizerPlugin Fork
+# [WorkshopOptimizerPlugin Fork](https://api.github.com/repos/Ai-Vonie/WorkshopOptimizerPluginFork/releases)
 FFXIV Island Sanctuary Workshop Optimizer Plugin
 
 This is a fork of the original plugin by [@belzaru17](https://github.com/belzaru17/WorkshopOptimizerPlugin)
