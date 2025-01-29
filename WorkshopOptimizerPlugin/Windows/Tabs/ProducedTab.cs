@@ -136,6 +136,9 @@ internal class ProducedTab : ITab
                 if (!string.IsNullOrEmpty(text))
                 {
                     ImGui.SetClipboardText(text);
+                    Plugin.NotifObject.Content = $"Cycle {cycle + 1} data copied to clipboard";
+                    Plugin.NotifObject.Type = Dalamud.Interface.ImGuiNotification.NotificationType.Success;
+                    Plugin.NotificationManager.AddNotification(Plugin.NotifObject);
                 }
             }
             if (ImGui.IsItemHovered())
@@ -156,6 +159,9 @@ internal class ProducedTab : ITab
                 if (!string.IsNullOrEmpty(text))
                 {
                     ImGui.SetClipboardText(text);
+                    Plugin.NotifObject.Content = "All cycles data copied to clipboard";
+                    Plugin.NotifObject.Type = Dalamud.Interface.ImGuiNotification.NotificationType.Success;
+                    Plugin.NotificationManager.AddNotification(Plugin.NotifObject);
                 }
             }
             if (ImGui.IsItemHovered())
@@ -354,6 +360,9 @@ internal class ProducedTab : ITab
                 {
                     var stepByStepText = GetWorkshopStepByStepText(items[i]);
                     ImGui.SetClipboardText(stepByStepText);
+                    Plugin.NotifObject.Content = $"Workshop {i + 1} step-by-step data copied to clipboard";
+                    Plugin.NotifObject.Type = Dalamud.Interface.ImGuiNotification.NotificationType.Success;
+                    Plugin.NotificationManager.AddNotification(Plugin.NotifObject);
                 }
                 if (ImGui.IsItemHovered())
                 {
@@ -457,7 +466,13 @@ internal class ProducedTab : ITab
                     if (ImGui.SmallButton($"Copy###{w}{step}"))
                     {
                         var fullName = ItemStaticData.Get(thisItem.Id).Name;
-                        ImGui.SetClipboardText(fullName);
+                        if (!string.IsNullOrEmpty(fullName))
+                        {
+                            ImGui.SetClipboardText(fullName);
+                            Plugin.NotifObject.Content = $"Item name '{fullName}' copied to clipboard";
+                            Plugin.NotifObject.Type = Dalamud.Interface.ImGuiNotification.NotificationType.Success;
+                            Plugin.NotificationManager.AddNotification(Plugin.NotifObject);
+                        }
                     }
                     if (ImGui.IsItemHovered())
                     {

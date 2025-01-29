@@ -4,6 +4,7 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using WorkshopOptimizerPlugin.Windows;
+using Dalamud.Interface.ImGuiNotification;
 
 namespace WorkshopOptimizerPlugin;
 
@@ -15,6 +16,7 @@ public sealed class Plugin : IDalamudPlugin
     public WindowSystem WindowSystem = new("WorkshopOptimizerPlugin");
 
     public readonly Icons Icons;
+    public static Notification NotifObject = new Notification();
 
     [PluginService]
     public static IChatGui ChatGui { get; private set; } = null!;
@@ -37,6 +39,8 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService]
     public static ITextureProvider TextureProvider { get; private set; } = null!;
 
+    [PluginService] 
+    public static INotificationManager NotificationManager { get; private set; } = null!;
 
     private const string CommandName = "/wso";
 
@@ -48,6 +52,7 @@ public sealed class Plugin : IDalamudPlugin
         Configuration.Initialize(PluginInterface);
 
         Icons = new Icons(PluginInterface, TextureProvider);
+        NotifObject.Title = "Workshop Optimizer";
 
         this.ConfigWindow = new ConfigWindow(this);
         this.MainWindow = new MainWindow(this);
@@ -63,6 +68,13 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.Draw += DrawUI;
         PluginInterface.UiBuilder.OpenMainUi += OpenMainUI;
         PluginInterface.UiBuilder.OpenConfigUi += OpenConfigUI;
+    }
+
+    public void ShowNotification(string message, NotificationType type = NotificationType.Info)
+    {
+        NotifObject.Content = message;
+        NotifObject.Type = type;
+        NotificationManager.AddNotification(NotifObject);
     }
 
     public void Dispose()
